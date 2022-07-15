@@ -415,7 +415,7 @@ rm(data_Fiscal_Year_, data_all_, data_2012_2020_fix_, data_Fishery_)
 
 
 <!-- Totalization -->
-# Table 1. Summary of 134,137Cs monitoring data from April 2012 to December 2020*
+# Table 1. Summary of 134,137Cs monitoring data from FY 2012 to 2021
 ```{r}
 # Data analysis on the sample data and the year reported.
 # Data using Cs detection instruments reported, “Ge”, “CsI”, “NaI” and  “-,” were used for analysis.
@@ -626,7 +626,7 @@ rm(data_2012_2020_fish_)
 ```
 
 
-# Fig 1. The general foodsuffs examined from April 2012-December 2020 and reported above the threshold value (100 Bq/kg)
+# Fig 1. The general foodsuffs examined from FY 2012 - 2021 and reported above the threshold value (100 Bq/kg)
 ```{r}
 # Data using Cs detection instruments reported, “Ge”, “CsI”, “NaI” and  “-,” were used for analysis.
 
@@ -695,16 +695,6 @@ Fig2_2016 %>% print()
 # Fig2_2019 %>% print()
 Fig2_2021 %>% print()
 
-# pie(data_2012$Ex_2012, radius = 1, clockwise = T, labels = data_2012$Food_classfication,
-#     density=c(100,0,0,10,0,0,0,100,0,0,0,0,0,100,0,0,0,0,100,100,0,0,0,0,0,100,100,0,0,0))
-# pie(data_2014$Ex_2014, radius = 1, clockwise = T, labels = data_2014$Food_classfication,
-#     density=c(0,0,10,0,0,100,0,100,0,0,0,0,0,100,0,0,0,0,0,100,100,0,0,0,0,100,100,0,0,0))
-# pie(data_2016$Ex_2016, radius = 1, clockwise = T, labels = data_2016$Food_classfication,
-#     density=c(0,0,0,10,0,100,100,0,0,0,0,0,0,100,0,0,0,0,100,100,0,0,0,0,0,100,100,0,0,0))
-# pie(data_2019$Ex_2019, radius = 1, clockwise = T, labels = data_2019$Food_classfication,
-#     density=c(0,0,0,10,0,100,100,0,0,0,0,0,0,100,0,0,0,0,100,100,0,0,0,0,0,100,100,0,0,0))
-# pie(data_2021$Ex_2021, radius = 1, clockwise = T, labels = data_2021$Food_classfication,
-#     density=c(0,0,0,0,0,10,100,100,0,0,0,0,0,100,0,0,0,0,100,100,0,0,0,0,0,100,100,0,0,0))
 
 rm(data_Ex_Item_, data_Ex_Item_0, data_Ex_Item_Year_)
 
@@ -885,7 +875,7 @@ rm(Non_Market_0, Non_Market, For_Sales, Not_For_Sales)
 ```
 
 
-# fig.4 Comparison of the number of marine and fresh water foodstuffs having Cs detected and above the threshold concentration between year FY 2016-2021
+# fig.4 Comparison of the number of marine and fresh water foodstuffs having Cs detected and above the threshold concentration between year FY 2016 - 2021
 ```{r}
 data_2012_2020_fish_ <- data_2012_2020_total_ %>%
   filter(Inspection_instrument=="Ge") %>%

@@ -416,7 +416,7 @@ rm(data_Fiscal_Year_, data_all_, data_2012_2020_fix_, data_Fishery_)
 
 
 # Supplementary
-#### Figure 3. Maps of all examined foodstuffs reported during April 2012–December 2020
+#### Figure 3. Maps of all examined foodstuffs reported during FY 2012 – 2021
 ```{r}
 # Supplementary Figure 2. Maps of all examined foodstuffs reported during April 2012–December 2020
 # Prefectures are indicated by borders. Prefectures having no foods reported were left clear. The location of FDNPS is indicated by an orange dot. All data reported in the database were included in the analysis.
@@ -468,9 +468,9 @@ rm(data_replace, data_0, fukushima_data_, g, g0)
 
 ```
 
-#### Figure 4. Maps of all examined general foodstuffs reported during April 2012–December 2020
-#### Figure 5. Maps of all examined milk/infant foodstuffs reported during April 2012–December 2020
-#### Figure 6. Maps of all examined drinking water reported during April 2012–December 2020
+#### Figure 4. Maps of all examined general foodstuffs reported during FY 2012 – 2021
+#### Figure 5. Maps of all examined milk/infant foodstuffs reported during FY 2012 – 2021
+#### Figure 6. Maps of all examined drinking water reported during FY 2012 – 2021
 ```{r}
 # Prefectures are indicated by borders. Prefectures having no foods reported were left clear. The location of FDNPS is indicated by an orange dot. All data reported in the database were included in the analysis.
 # 
@@ -480,6 +480,9 @@ fukushima_data_ <- tibble(city="Fukushima_Daiichi", lat=37.421671, long=141.0327
 # data source https://www.naturalearthdata.com/downloads/
 # Note:
 # The original file distributed from the above URL was fixed for the information on "name_local" for Shizuoka prefecture to represent the actual information.
+# This code is Japanese Fonts . Please download "IPAexGothic".
+# https://moji.or.jp/ipafont/
+
 data_0 <- sf::st_read("./ne_10m_admin_1_states_provinces") %>%
   filter(adm0_a3 == 'JPN')
 data_replace <- data_0 %>% filter(name=="Shizuoka") %>% tibble()
@@ -618,21 +621,6 @@ Fig08 <- data_2012_2020_total_ %>%
 ```{r}
 # Supplementary Figure 9. Analysis of marketed and non-marketed foodstuffs during FY 2012 - 2021
 # The number and ratio of all marketed and non-marketed food products in each year were plotted in the graph. All data reported in the database were included in the analysis.
-#Market=="Market products"
-# Fig9_Total <- data_2012_2020_total_ %>%
-#   filter(Item!="Cattle meat" & !str_detect(その他,"全頭検査")) %>%
-#   filter(Item!="Cattle meat" & !str_detect(その他,"全島検査")) %>%
-#   filter(Market=="Market products") %>%
-#   count(Fiscal_Year) %>%
-#   mutate("Market_NonMarket"="Market") %>%
-#   rbind(
-#     data_2012_2020_total_ %>%
-#       filter(Item!="Cattle meat" & !str_detect(その他,"全頭検査")) %>%
-#       filter(Item!="Cattle meat" & !str_detect(その他,"全島検査")) %>%
-#       filter(Market!="Market products") %>%
-#       count(Fiscal_Year) %>%
-#       mutate("Market_NonMarket"="NonMarket")
-#       )
 Fig09_Market <- data_2012_2020_total_ %>%
   filter(Item!="Cattle meat" & !str_detect(その他,"全頭検査")) %>%
   filter(Item!="Cattle meat" & !str_detect(その他,"全島検査")) %>%
