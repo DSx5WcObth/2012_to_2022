@@ -407,7 +407,7 @@ data_Fiscal_Year_ <- rbind(Year_Sampling %>% select(-c(Year_Month, Cs_fix)),
 
 data_2012_2020_total_ <- data_Fiscal_Year_
 rm(Year_Sampling, Year_Result, Year_Press)
-rm(data_Fiscal_Year_, data_all_, data_2012_2020_fix_)
+rm(data_Fiscal_Year_, data_all_, data_2012_2020_fix_, data_Fishery_)
 
 
 ```
