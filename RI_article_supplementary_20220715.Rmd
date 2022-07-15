@@ -1,0 +1,1532 @@
+---
+title: "RI Supplementary Notebook"
+output: html_notebook
+---
+
+```{r}
+# Main Notebook is here.
+# https://dsx5wcobth.github.io/2012_to_2022/
+
+# Supplementary Notebook is here.
+# https://dsx5wcobth.github.io/2012_to_2022/RI_article_supplementary_20220715.nb.html
+
+# All sorce code is here.
+# https://github.com/DSx5WcObth/2012_to_2022
+
+# The recommended  execution environment to run the code is as follows.
+# OS version : Ubuntu20.04 または macOS12
+# R version : 4.0.3
+# RStudio version : v1.4.1717
+# tidyverse version : 1.3.1
+
+```
+
+### Initialized and library loaded.
+```{r}
+options(warn=-1)
+# Initialized.
+rm(list=ls())
+
+# Library loaded.
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(stringr)
+library(readr)
+library(openxlsx)
+library(ggrepel)
+library(furrr)
+
+```
+
+<!-- データ読み込み -->
+### Data loaded.
+```{r}
+options(warn=-1)
+# CSV data loaded.
+fdata <- c(
+  "./merge_csv/2012_rep.csv",
+  "./merge_csv/2013_rep.csv",
+  "./merge_csv/2014_rep.csv",
+  "./merge_csv/2015_rep.csv",
+  "./merge_csv/2016_rep.csv",
+  "./merge_csv/2017_rep.csv",
+  "./merge_csv/2018_rep.csv",
+  "./merge_csv/2019_rep.csv",
+  "./merge_csv/2020_1_rep.csv"
+)
+
+# plan(multisession, workers = 8) 
+data_2020_all_1 <- furrr::future_map_dfr(fdata, ~ readr::read_csv(.x, col_types=cols(.default = "c")))
+rm(fdata)
+
+# data_2020_all_2 <- readr::read_csv("./merge_csv/csv_archive/2020_2_archive.csv", col_types=cols(.default = "c"))
+fdata <- c(
+  "./merge_csv/2020_2_rep.csv",
+  "./merge_csv/2021_rep.csv",
+  "./merge_csv/2022_rep.csv"
+
+)
+data_2020_all_2 <- furrr::future_map_dfr(fdata, ~ readr::read_csv(.x, col_types=cols(.default = "c")))
+
+# "No" column in the data was converted to integer
+data_2020_all_1[c("No")] <- data_2020_all_1[c("No")] %>% furrr::future_map( ~ as.integer(.x))
+data_2020_all_2[c("No")] <- data_2020_all_2[c("No")] %>% furrr::future_map( ~ as.integer(.x))
+
+```
+
+## Pre processing
+<!-- 2020 4月以降 連結 必要カラム抽出 -->
+#### Data conjoin and Columns select
+```{r}
+options(warn=-1)
+#### Information on Prefecture was not used due to as it is at low data quality.
+data_all_1 <- data_2020_all_1 %>%
+  select(
+    "No", "都道府県", "市町村", "area", "Market",
+    "食品カテゴリ", "Category", "Category_2",
+    "品目名", "Item", "その他", "Others",
+    "食品分類", "Food_classfication",
+    "Inspection_instrument",
+    "Sampling_Date", "Sampling_Date_fix",
+    "Results_Obtained_Date", "Result_Date_fix",
+    "Press_Release_Date", "Press_Release_Date_fix",
+    "Sampling_Year", "Result_Year", "Press_Release_Year", "File_Year",
+    "Cesium_134", "Cs_134_fix", "Cs_134_ND",
+    "Cesium_137", "Cs_137_fix", "Cs_137_ND",
+    "Cesium_total", "Cs_total_fix", "Cs_total_ND", "exceed_action_levels")
+data_all_2 <- data_2020_all_2 %>%
+  select(
+    "No", "都道府県", "市町村", "area", "Market",
+    "食品カテゴリ", "Category", "Category_2",
+    "品目名", "Item", "養殖_天然", "Farmed_Wild",
+    "食品分類",  "Food_classfication",
+    "Inspection_instrument",
+    "Sampling_Date", "Sampling_Date_fix",
+    "Results_Obtained_Date", "Result_Date_fix",
+    "Press_Release_Date", "Press_Release_Date_fix",
+    "Sampling_Year", "Result_Year", "Press_Release_Year", "File_Year",
+    "Cesium_134", "Cs_134_fix", "Cs_134_ND",
+    "Cesium_137", "Cs_137_fix", "Cs_137_ND",
+    "Cesium_total", "Cs_total_fix", "Cs_total_ND", "exceed_action_levels")
+colnames(data_all_2) <- c("No", "都道府県", "市町村", "area", "Market",
+                          "食品カテゴリ", "Category", "Category_2",
+                          "品目名", "Item", "その他", "Others",
+                          "食品分類", "Food_classfication",
+                          "Inspection_instrument",
+                          "Sampling_Date", "Sampling_Date_fix",
+                          "Results_Obtained_Date", "Result_Date_fix",
+                          "Press_Release_Date", "Press_Release_Date_fix",
+                          "Sampling_Year", "Result_Year", "Press_Release_Year", "File_Year",
+                          "Cesium_134", "Cs_134_fix", "Cs_134_ND",
+                          "Cesium_137", "Cs_137_fix", "Cs_137_ND",
+                          "Cesium_total", "Cs_total_fix", "Cs_total_ND", "exceed_action_levels")
+
+data_all_ <- rbind(data_all_1, data_all_2)
+rm(data_2020_all_1, data_2020_all_2)
+rm(data_all_1, data_all_2)
+
+
+```
+
+
+<!-- データクリーニング, カラム追加 および 型変換 -->
+#### Data Cleaning , Columns add and Type conversion
+```{r}
+options(warn=-1)
+data_2012_2020_fix_ <- data_all_
+data_2012_2020_fix_ <- data_2012_2020_fix_ %>% drop_na(No)
+
+# Market column data cleaned.
+txt_pattern <- c("-|―")
+txt_replace <- c("Not applicable")
+data_2012_2020_fix_$Market <- purrr::reduce2(txt_pattern, txt_replace, .init=data_2012_2020_fix_$Market, str_replace)
+
+# Undefined data in food category was changed to “others” and recategorized as "not applicable."
+txt_pattern <- c("Others")
+txt_replace <- c("Not applicable")
+data_2012_2020_fix_$Category <- purrr::reduce2(txt_pattern, txt_replace, .init=data_2012_2020_fix_$Category, str_replace)
+data_2012_2020_fix_$Category <- data_2012_2020_fix_$Category %>% str_trim()
+
+# "Sampling_Date_fix", "Result_Date_fix" and "Press_Release_Date_fix" columns were created using the data in "Sampling_Date", "Result_Date" and "Press_Release_Date" columns, and the date format were fixed.
+txt_pattern <- c("年|月")
+txt_replace <- c("-")
+column_fix <- c("Sampling_Date_fix", "Result_Date_fix", "Press_Release_Date_fix")
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_replace(txt_pattern, txt_replace)})
+
+txt_pattern <- c("-$")
+txt_replace <- c("-01")
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_replace(txt_pattern, txt_replace)})
+
+txt_pattern <- c("^-01")
+txt_replace <- c("-")
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_replace(txt_pattern, txt_replace)})
+
+column_fix <- c("Sampling_Date_fix", "Result_Date_fix", "Press_Release_Date_fix")
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_sub(start=1, end=10)})
+
+# Sampling_Year data were cleaned.
+txt_pattern <- c("-|－|―|　| |-|―|−|─|－|nan|不明")
+txt_replace <- c("-")
+column_fix <- c("Sampling_Year")
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_replace(txt_pattern, txt_replace)})
+
+# Sampling_Year data were cleaned.
+txt_pattern <- c("-|－|―|　| |-|―|−|─|－|nan|不明")
+txt_replace <- c("-")
+column_fix <- c("Sampling_Year")
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_replace(txt_pattern, txt_replace)})
+
+# Inspection_instrument data were cleaned.
+column_fix <- c("Inspection_instrument")
+data_2012_2020_fix_[[column_fix]] <- data_2012_2020_fix_[[column_fix]] %>%
+  sapply(function(x) {x %>% str_trim() %>% str_trunc(2, "right", ellipsis="")})
+
+txt_pattern_1 <- c("^N.*")
+txt_pattern_2 <- c("^Ｎ.*")
+txt_replace <- c("NaI")
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_replace(txt_pattern_1 , txt_replace)})
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_replace(txt_pattern_2 , txt_replace)})
+
+txt_pattern_1 <- "^G.*"
+txt_pattern_2 <- "^Ｇ.*"
+txt_replace <- "Ge"
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_replace(txt_pattern_1 , txt_replace)})
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_replace(txt_pattern_2 , txt_replace)})
+
+txt_pattern_1 <- c("^Ｃ.*")
+txt_pattern_2 <- c("^C.*")
+txt_replace <- "CsI"
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_replace(txt_pattern_1 , txt_replace)})
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_replace(txt_pattern_2 , txt_replace)})
+
+# Data in “Cesium_total” were cleaned, and the fixed data were saved in “Cs_total_fix data” column.
+data_2012_2020_fix_ <- data_2012_2020_fix_ %>%
+  mutate(
+    Cs_fix=case_when(
+      Cesium_134=="<.0598" ~ "0598",
+      TRUE ~ Cs_134_fix
+    )
+  )
+data_2012_2020_fix_["Cs_134_fix"] <- data_2012_2020_fix_["Cs_fix"]
+data_2012_2020_fix_ <- data_2012_2020_fix_ %>%
+  mutate(
+    Cs_fix=case_when(
+      Cesium_137=="<.881" ~ "0.881",
+      Cesium_137=="<.12" ~ "0.12",
+      Cesium_137=="<\\.0441" ~ "0.0441",
+      TRUE ~ Cs_137_fix
+    )
+  )
+data_2012_2020_fix_["Cs_137_fix"] <- data_2012_2020_fix_["Cs_fix"]
+data_2012_2020_fix_ <- data_2012_2020_fix_ %>%
+  mutate(
+    Cs_fix=case_when(
+      Cesium_total=="<164" ~ "16.4",
+      Cesium_total=="^0$" ~ "25",
+      TRUE ~ Cs_total_fix
+    )
+  )
+data_2012_2020_fix_["Cs_total_fix"] <- data_2012_2020_fix_["Cs_fix"]
+
+txt_pattern <- c("^0.0$")
+txt_replace <- c("NotDetected")
+column_fix <- c("Cs_total_ND")
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_replace(txt_pattern, txt_replace)})
+
+txt_pattern <- c("<\\.|<\\.|^\\.|\\'|\\n|\\*|\\.$|N\\.D\\.|\\(|\\)|（|）|^\\.|\\.$")
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_remove(txt_pattern)})
+
+txt_pattern <- c("±")
+txt_replace <- c("          ")
+column_fix <- c("Cs_134_fix", "Cs_137_fix", "Cs_total_fix")
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>%
+      str_replace(txt_pattern, txt_replace) %>% str_sub(start=1, end=6)})
+
+txt_pattern <- c("\\.\\.|,|．|\\.,|,\\.")
+txt_replace <- c(".")
+column_fix <- c("Cs_134_fix", "Cs_137_fix", "Cs_total_fix")
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_replace(txt_pattern, txt_replace)})
+
+# Cs values were converted to numeric data.
+column_fix <- c("Cs_134_fix", "Cs_137_fix", "Cs_total_fix")
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_trim() %>% as.numeric()})
+
+
+
+# Over JML was determined from Cs values.
+data_2012_2020_fix_ <- data_2012_2020_fix_ %>%
+  mutate(
+    Exceed=case_when(
+      Category_2 %in% "General foods" & Cs_total_ND=="Detected" & Cs_total_fix>100 ~ "Ex",
+      Category_2 %in% "Milk, infant foods" & Cs_total_ND=="Detected" & Cs_total_fix>50 ~ "Ex",
+      Category_2 %in% "Drinking water" & Cs_total_ND=="Detected" & Cs_total_fix>10 ~ "Ex"
+      )
+    )
+
+# Cs detection was determined from Cs values.
+data_2012_2020_fix_ <- data_2012_2020_fix_ %>%
+  mutate(
+    Gene_food_ND=case_when(
+      Category_2 %in% "General foods" & Cs_total_fix>25 ~ "Detected",
+      Category_2 %in% "General foods" & !Cs_total_fix>25 ~ "NotDetected",
+      Category_2 %in% "Milk, infant foods" & Cs_total_fix>25 ~ "Detected",
+      Category_2 %in% "Milk, infant foods" & !Cs_total_fix>25 ~ "NotDetected",
+      Category_2 %in% "Drinking water" & Cs_total_fix>10 ~ "Detected",
+      Category_2 %in% "Drinking water" & !Cs_total_fix>10 ~ "NotDetected",
+      is.na(Cs_total_fix) ~ "NotDetected"
+      )
+    )
+
+data_2012_2020_fix_ <- data_2012_2020_fix_ %>%
+  mutate(
+    Cs_condition=case_when(
+      Cs_total_fix>100 ~ "Warning", 
+      Cs_total_fix>50 ~ "Caution", 
+      Cs_total_fix>25 ~ "Notice", 
+      Cs_total_fix<=25 ~ "Info", 
+      is.na(Cs_total_fix) ~ "NoData"
+      )
+    )
+
+# The data in “exceed_action_levels” column were changed to “TRUE” when over JML.
+txt_pattern <- c("1")
+txt_replace <- c("TRUE")
+column_fix <- c("exceed_action_levels")
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  sapply(function(x) {x %>% str_replace(txt_pattern, txt_replace)})
+
+# Data in "character" type were converted into "factor" type.
+column_fix <- c(
+  # "Prefecture", "Market", "Inspection_instrument",
+  "Market", "Inspection_instrument",
+  "Category", "Category_2", "Food_classfication",
+  "Cs_134_ND", "Cs_137_ND", "Cs_total_ND", "Cs_condition",
+  "exceed_action_levels", "Exceed",
+  "Sampling_Year", "Result_Year", "Press_Release_Year",
+  "File_Year"
+)
+
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  lapply(as.factor) %>% data.frame()
+
+column_fix <- c("Sampling_Date_fix",
+                "Result_Date_fix",
+                "Press_Release_Date_fix")
+# data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+#   lapply(function(x) {x %>% as.Date() %>% data.frame()}) 
+data_2012_2020_fix_[, column_fix] <- data_2012_2020_fix_[, column_fix] %>%
+  lapply(function(x) {x %>% as.Date()})
+
+# Prefecture translate english.
+data_2012_2020_fix_ <- data_2012_2020_fix_ %>% merge(readr::read_csv("./csv/Prefecture_english.csv"), by="都道府県", all.x = T)
+
+# Data from "Sampling_Year" were basically used. Otherwise, "Result_Year," "Press_Release_Year," or year recorded to save the data file, 
+data_2012_2020_total_ <- data_2012_2020_fix_ %>%
+  mutate(Integration_Year=case_when(
+         Sampling_Year=="2012" | Sampling_Year=="2013" | Sampling_Year=="2014" |
+         Sampling_Year=="2015" | Sampling_Year=="2016" | Sampling_Year=="2017" |
+         Sampling_Year=="2018" | Sampling_Year=="2019" | Sampling_Year=="2020" |
+         Sampling_Year=="2021" | Sampling_Year=="2022" ~ Sampling_Year,
+         Sampling_Year!="2012" & Sampling_Year!="2013" & Sampling_Year!="2014" &
+         Sampling_Year!="2015" & Sampling_Year!="2016" & Sampling_Year!="2017" &
+         Sampling_Year!="2018" & Sampling_Year!="2019" & Sampling_Year!="2020" &
+         Sampling_Year!="2021" & Sampling_Year!="2022" & !is.na(Result_Year) ~ Result_Year,
+         TRUE ~ File_Year
+          ) 
+  )
+
+# Translation mistakes from Japanese to English were corrected.
+data_Fishery_ <- data_2012_2020_total_ %>%
+  filter(Category=="Fishery products")
+data_Fishery_$Item <- data_Fishery_$Item %>%
+  str_replace(pattern="Japanese persimmon", replacement="Oyster")
+data_Fishery_$Food_classfication <- data_Fishery_$Food_classfication %>%
+  str_replace(pattern="Fruits_including_nuts", replacement="Marine_products(invertebrate)")
+data_Fishery_$食品分類 <- data_Fishery_$食品分類 %>%
+  str_replace(pattern="果実類（種実類含む）", replacement="水産物(無脊椎)")
+data_NotFishery_ <- data_2012_2020_total_ %>% filter(Category!="Fishery products")
+data_2012_2020_total_ <- data_Fishery_ %>% rbind(data_NotFishery_)
+rm(data_Fishery_, data_NotFishery_)
+
+# Food classfication to “No_Data” and “Confirming” was corrected and grouped into "Other".
+data_Others_ <- data_2012_2020_total_ %>%
+  filter(is.na(Food_classfication) | Food_classfication=="No_Data" | Food_classfication=="Confirming")
+data_Others_$Food_classfication <- "Other"
+
+data_NotOthers_ <- data_2012_2020_total_ %>%
+  filter(!is.na(Food_classfication) & Food_classfication!="No_Data" & Food_classfication!="Confirming")
+data_2012_2020_total_ <- data_Others_ %>% rbind(data_NotOthers_)
+rm(data_Others_, data_NotOthers_)
+
+data_2012_2020_total_$食品分類 <- data_2012_2020_total_$食品分類 %>%
+  str_replace(pattern="該当なし", replacement="その他")
+
+data_Fiscal_Year_ <- data_2012_2020_total_ %>%
+  mutate(Year_Month=str_sub(Sampling_Date, start = 1, end = 8)) %>%
+  merge(
+    readr::read_csv("./csv/Sampling_Year_Month.csv" )[c("Year_Month", "Fiscal_Year", "Month")],
+    by="Year_Month", all.x=T)
+Year_Sampling <- data_Fiscal_Year_ %>%
+  filter(Fiscal_Year!="-" & !is.na(Fiscal_Year))
+Year_Result <- data_Fiscal_Year_ %>%
+  filter(Fiscal_Year=="-" | is.na(Fiscal_Year)) %>%
+  select(-c(Year_Month, Fiscal_Year, Month)) %>%
+  mutate(Year_Month=str_sub(Results_Obtained_Date, start = 1, end = 8)) %>%
+  merge(
+    readr::read_csv("./csv/Results_Year_Month.csv" )[c("Year_Month", "Fiscal_Year", "Month")],
+    by="Year_Month", all.x=T)
+Year_Press <- Year_Result %>% filter(Fiscal_Year=="-" | is.na(Fiscal_Year))
+Year_Result <- Year_Result %>% filter(Fiscal_Year!="-" & !is.na(Fiscal_Year))
+Year_Press <- Year_Press %>%
+  filter(Fiscal_Year=="-" | is.na(Fiscal_Year)) %>%
+  select(-c(Year_Month, Fiscal_Year, Month)) %>%
+  mutate(Year_Month=str_sub(Press_Release_Date, start = 1, end = 8)) %>%
+  merge(
+    readr::read_csv("./csv/Press_Year_Month.csv" )[c("Year_Month", "Fiscal_Year", "Month")],
+    by="Year_Month", all.x=T)
+data_Fiscal_Year_ <- rbind(Year_Sampling %>% select(-c(Year_Month, Cs_fix)),
+                           Year_Result %>% select(-c(Year_Month, Cs_fix)),
+                           Year_Press %>% select(-c(Year_Month, Cs_fix)))
+
+data_2012_2020_total_ <- data_Fiscal_Year_
+rm(Year_Sampling, Year_Result, Year_Press)
+rm(data_Fiscal_Year_, data_all_, data_2012_2020_fix_, data_Fishery_)
+
+
+```
+
+
+# Supplementary
+#### Figure 3. Maps of all examined foodstuffs reported during April 2012–December 2020
+```{r}
+# Supplementary Figure 2. Maps of all examined foodstuffs reported during April 2012–December 2020
+# Prefectures are indicated by borders. Prefectures having no foods reported were left clear. The location of FDNPS is indicated by an orange dot. All data reported in the database were included in the analysis.
+
+# Fukushima Daiichi place
+fukushima_data_ <- tibble(city="Fukushima_Daiichi", lat=37.421671, long=141.032727)
+# map shape data loading
+# data source https://www.naturalearthdata.com/downloads/
+# Note:
+# The original file distributed from the above URL was fixed for the information on "name_local" for Shizuoka prefecture to represent the actual information.
+data_0 <- sf::st_read("./ne_10m_admin_1_states_provinces") %>%
+  filter(adm0_a3 == 'JPN')
+data_replace <- data_0 %>% filter(name=="Shizuoka") %>% tibble()
+data_replace["name_local"] <- "静岡県"
+data_0 <- data_0 %>% filter(name!="Shizuoka") %>% rbind(sf::st_as_sf(data_replace)) 
+# Blank map of Japan was plotted.
+g0 <- data_0 %>%
+  ggplot() + geom_sf(fill="white") + xlab("longitude") + ylab("latitude") + theme_bw()
+
+# Included all food category.
+for (Year_ in c(2012:2021)) {
+  Food_ <- "All_Item"
+  Range_ <- 45000
+  data_1 <- data_2012_2020_total_ %>%
+    filter(Fiscal_Year==Year_) %>%
+    # filter(食品カテゴリ_2==Food_) %>%
+    count(都道府県, Fiscal_Year)
+  data_2 <- data_1 %>%
+    merge(data_0,
+      by.x="都道府県", by.y="name_local"
+    ) %>% sf::st_as_sf()
+  g <- g0 + geom_sf(data=data_2, aes(fill=n)) +
+    xlim(128, 146) +
+    ylim(30, 46) +
+    scale_fill_gradient(low   = "cyan",
+                        high  = "magenta",
+                        limits= c(1, Range_)) +
+    geom_point(data=fukushima_data_,
+               aes(x=long, y=lat), colour="orange", size=4) +
+    ggtitle(paste0(Year_, " ", Food_)) +
+    labs(fill="Inspected") +
+    theme(text = element_text(family = "IPAexGothic"))
+  g
+  # g %>% print()
+  ggsave(paste0("./pict/choropleth_map/choropleth_map_", Food_, Year_, ".jpg"), dpi=100, width=6, height=6)
+}
+
+rm(data_replace, data_0, fukushima_data_, g, g0)
+
+```
+
+#### Figure 4. Maps of all examined general foodstuffs reported during April 2012–December 2020
+#### Figure 5. Maps of all examined milk/infant foodstuffs reported during April 2012–December 2020
+#### Figure 6. Maps of all examined drinking water reported during April 2012–December 2020
+```{r}
+# Prefectures are indicated by borders. Prefectures having no foods reported were left clear. The location of FDNPS is indicated by an orange dot. All data reported in the database were included in the analysis.
+# 
+# Fukushima Daiichi place
+fukushima_data_ <- tibble(city="Fukushima_Daiichi", lat=37.421671, long=141.032727)
+# map shape data loading
+# data source https://www.naturalearthdata.com/downloads/
+# Note:
+# The original file distributed from the above URL was fixed for the information on "name_local" for Shizuoka prefecture to represent the actual information.
+data_0 <- sf::st_read("./ne_10m_admin_1_states_provinces") %>%
+  filter(adm0_a3 == 'JPN')
+data_replace <- data_0 %>% filter(name=="Shizuoka") %>% tibble()
+data_replace["name_local"] <- "静岡県"
+data_0 <- data_0 %>% filter(name!="Shizuoka") %>% rbind(sf::st_as_sf(data_replace)) 
+# Blank map of Japan was plotted.
+g0 <- data_0 %>%
+  ggplot() + geom_sf(fill="white") + xlab("longitude") + ylab("latitude") + theme_bw()
+
+# Food category was specified.
+for (Food_ in c("General foods", "Milk, infant foods", "Drinking water")) {
+  # Food_ <- "一般食品"
+  switch (Food_,
+    "General foods" = (Range_<-45000),
+    "Milk, infant foods" = (Range_<-800),
+    "Drinking water" = (Range_<-400),
+  )
+  for (Year_ in c(2012:2021)) {
+    # Food_ <- "All_Item"
+    data_1 <- data_2012_2020_total_ %>%
+      filter(Fiscal_Year==Year_) %>%
+      filter(Category_2==Food_) %>%
+      count(都道府県, Fiscal_Year)
+    data_2 <- data_1 %>%
+      merge(data_0,
+        by.x="都道府県", by.y="name_local"
+      ) %>% sf::st_as_sf()
+  g <- g0 + geom_sf(data=data_2, aes(fill=n)) +
+      xlim(128, 146) +
+      ylim(30, 46) +
+      scale_fill_gradient(low   = "cyan",
+                          high  = "magenta",
+                          limits= c(1, Range_)) +
+      geom_point(data=fukushima_data_,
+                 aes(x=long, y=lat), colour="orange", size=4) +
+      ggtitle(paste0(Year_, " ", Food_)) +
+      labs(fill="Inspected") +
+      theme(text = element_text(family = "IPAexGothic"))
+  g
+  # g %>% print()
+  ggsave(paste0("./pict/choropleth_map/choropleth_map_", Food_, Year_, ".jpg"), dpi=100, width=6, height=6)
+  }
+}
+
+rm(data_replace, data_0, fukushima_data_, g, g0)
+
+
+```
+
+#### Figure 7. Summary of 134,137Cs concentration reported for foodstuffs in the general food category
+```{r}
+# Supplementary Figure 6. Summary of 134,137Cs concentration reported for foodstuffs in the general food category
+# (a) Distribution curve of 134,137Cs concentration. Samples exceeding the JML（10 Bq/kg, 50 Bq/kg and 100 Bq/kg for drinking water, milk/infant foods and general foods, respectively) are in red, while the others are in grey.
+
+# Category include "Agricultural products", "Fishery products", "Livestock products", "Wild animal meat", "Milk, infant formula", "Drinking water".
+
+# Cesium 134,137 >25 Bq/kg only.
+data_2012_2020_total_ %>%
+  filter(Cs_total_ND=="Detected") %>%
+  filter(Cs_total_fix>0 & is.na(Exceed)) %>%
+  summary() %>%
+  print()
+data_2012_2020_total_ %>%
+  filter(Exceed=="Ex") %>%
+  summary() %>% print()
+
+Fig07_A1 <- data_2012_2020_total_ %>%
+  filter(!is.na(Fiscal_Year) & Cs_total_ND=="Detected") %>% ggplot()
+Fig07_A1 <- Fig07_A1 +
+  geom_histogram(aes(x=Cs_total_fix, fill=Exceed), colour="white") +
+  scale_x_log10(breaks=c(0, 1, 10, 100, 1000, 10000, 60000)) +
+  xlab("134,137Cs concentration (Bq/kg)") +
+  ylab("Sample count") +
+  ggtitle("All foods Cs134,137 histogram") +
+  theme_bw() +
+  theme(axis.text.x=element_text(size = 12),
+        axis.text.y=element_text(size = 12),
+        axis.ticks.length = unit(-1.5, "mm"))
+# Fig07_A1
+# ggsave("pict/distribution/Cs_total_hist.jpg", dpi=200)
+
+Fig07_A2 <- data_2012_2020_total_ %>%
+  filter(!is.na(Fiscal_Year) & Cs_total_ND=="Detected") %>% ggplot()
+Fig07_A2 <- Fig07_A2 +
+  geom_boxplot(aes(x=Cs_total_fix, fill=Exceed)) +
+  scale_x_log10(breaks=c(0, 1, 10, 100, 1000, 10000, 60000)) + 
+  xlab("134,137Cs concentration (Bq/kg)") +
+  scale_y_discrete(limits = c()) +
+  ggtitle("All foods Cs134,137 boxplot") +
+  theme_bw() +
+  theme(axis.text.x=element_text(size = 12),
+        axis.text.y=element_text(size = 12),
+        axis.ticks.length = unit(-1.5, "mm"))
+# Fig07_A2
+# ggsave("pict/distribution/Cs_total_box.jpg", dpi=200, width = 24, height = 4)
+
+# (b) Violin plot of the distribution of 134,137Cs concentration in each year. The table indicates the concentration of samples exceeding or within the JML. All data reported in the database were included in the analysis.
+Fig07_B <- data_2012_2020_total_ %>%
+  filter(!is.na(Fiscal_Year) & Cs_total_ND=="Detected") %>% ggplot()
+Fig07_B <- Fig07_B +
+  geom_violin(aes(x=Fiscal_Year, y=Cs_total_fix), width=0.95, fill="Grey") +
+  geom_boxplot(aes(x=Fiscal_Year, y=Cs_total_fix), width=0.4) +
+  scale_y_log10(breaks=c(0, 1, 10, 100, 1000, 10000, 80000)) +
+  xlab("Fiscal Year") +
+  ylab("Reported 134,137Cs concentration (Bq/kg)") +
+  ggtitle("All foods Cs134,137 boxplot vs Fiscal Year") +
+  theme_bw() +
+  theme(axis.text.x=element_text(size = 12),
+        axis.text.y=element_text(size = 12),
+        axis.title.x=element_text(size = 16),
+        axis.ticks.length = unit(-1.5, "mm"))
+# Fig07_B
+# ggsave("pict/distribution/Cs_total_violin.jpg", dpi=200)
+
+
+```
+
+#### Figure 8. The annual trend in the reported instruments used for detection of Cs concentration in foodstuffs in the database.
+```{r}
+#Supplementary Figure 8. The annual trend in the reported instruments used for detection of Cs concentration in foodstuffs in the database
+# Ge, germanium semiconductor detector; CsI&NaI, gamma spectrometry with sodium iodide, NaI(TI), and cesium iodine, CsI(TI), scintillation detectors; -, including no indicated information and a non-destructive method.
+
+
+Fig08 <- data_2012_2020_total_ %>%
+  filter(Item!="Cattle meat" & !str_detect(その他,"全頭検査")) %>%
+  filter(Item!="Cattle meat" & !str_detect(その他,"全島検査")) %>%
+  count(Fiscal_Year, Inspection_instrument) %>%
+  spread(Inspection_instrument, n) %>%
+  select("Fiscal_Year", "―", "非破", "CsI", "NaI", "Ge") %>%
+  print()
+
+
+```
+
+#### Figure 9. Analysis of marketed and non-marketed foodstuffs during FY 2012 - 2021
+```{r}
+# Supplementary Figure 9. Analysis of marketed and non-marketed foodstuffs during FY 2012 - 2021
+# The number and ratio of all marketed and non-marketed food products in each year were plotted in the graph. All data reported in the database were included in the analysis.
+#Market=="Market products"
+# Fig9_Total <- data_2012_2020_total_ %>%
+#   filter(Item!="Cattle meat" & !str_detect(その他,"全頭検査")) %>%
+#   filter(Item!="Cattle meat" & !str_detect(その他,"全島検査")) %>%
+#   filter(Market=="Market products") %>%
+#   count(Fiscal_Year) %>%
+#   mutate("Market_NonMarket"="Market") %>%
+#   rbind(
+#     data_2012_2020_total_ %>%
+#       filter(Item!="Cattle meat" & !str_detect(その他,"全頭検査")) %>%
+#       filter(Item!="Cattle meat" & !str_detect(その他,"全島検査")) %>%
+#       filter(Market!="Market products") %>%
+#       count(Fiscal_Year) %>%
+#       mutate("Market_NonMarket"="NonMarket")
+#       )
+Fig09_Market <- data_2012_2020_total_ %>%
+  filter(Item!="Cattle meat" & !str_detect(その他,"全頭検査")) %>%
+  filter(Item!="Cattle meat" & !str_detect(その他,"全島検査")) %>%
+  filter(Fiscal_Year!="-") %>%
+  filter(Market=="Market products") %>%
+  count(Fiscal_Year, Exceed) %>%
+  spread(Exceed, n) %>%
+  replace_na(list(Ex=0, `<NA>`=0)) %>%
+  mutate(Total=Ex+`<NA>`) %>%
+  mutate(Rate=Ex/Total*100) %>% print()
+Fig09_NonMarket <- data_2012_2020_total_ %>%
+  filter(Item!="Cattle meat" & !str_detect(その他,"全頭検査")) %>%
+  filter(Item!="Cattle meat" & !str_detect(その他,"全島検査")) %>%
+  filter(Fiscal_Year!="-") %>%
+  filter(Market!="Market products") %>%
+  count(Fiscal_Year, Exceed) %>%
+  spread(Exceed, n) %>%
+  replace_na(list(Ex=0, `<NA>`=0)) %>%
+  mutate(Total=Ex+`<NA>`) %>%
+  mutate(Rate=Ex/Total*100) %>% print()
+
+
+```
+
+
+
+#### Figure 10. Rate of foodstuffs exceeding the JML in the general food category.
+```{r}
+# Supplementary Figure 10. Rate of foodstuffs exceeding the JML in the general food category
+# The pie graph shows the rate of foodstuffs reported at > 100 Bq/kg in the general food category during FY 2012-2021. The number and rate of general foodstuffs reported are summarized in the table. All data reported in the database were included in the analysis.
+
+Fig10 <- data_2012_2020_total_ %>%
+  # filter(Exceed=="Ex") %>%
+  count(Food_classfication, Exceed) %>%
+  spread(Exceed, n) %>%
+  arrange(desc(Ex), desc(`<NA>`)) %>%
+  replace_na(list(Ex=0, `<NA>`=0)) %>%
+  mutate(Subtotal=Ex+`<NA>`) %>%
+  mutate(Rate=Ex/Subtotal*100) %>%
+  rename(NotEx=`<NA>`) %>%
+  # View()
+  print()
+
+```
+
+#### Figure 11. Results of Cs concentration data analyzed for the reported fishery foodstuffs.
+```{r}
+# Supplementary Figure 11. Results of Cs concentration data analyzed for the reported fishery foodstuffs 
+# Annual trends of aquaculture or wild marine products (a or b, respectively) and aquaculture or wild freshwater products (c and d, respectively) examined and reported exceeding the JML (100 Bq/kg). All data reported in the database were included in the analysis.
+
+# Aquaculture or wild marine products , Aquaculture or wild freshwater products 
+Fishery_data_ <- data_2012_2020_total_ %>%
+  filter(Category=="Fishery products" & !is.na(Fiscal_Year)) %>%
+  mutate(
+    Marine_Water = case_when(Food_classfication=="Marine_products(freshwater)" ~ "Freshwater",
+                             Food_classfication!="Marine_products(freshwater)" ~ "Marine")
+    ) %>%
+  mutate(Period=case_when(
+      Fiscal_Year==2012 | Fiscal_Year==2013 | Fiscal_Year==2014 | Fiscal_Year==2015 ~ "Early",
+      Fiscal_Year==2016 | Fiscal_Year==2017 | Fiscal_Year==2018 | Fiscal_Year==2019 ~ "Middle",
+      Fiscal_Year==2020 | Fiscal_Year==2021 ~ "Later",
+      TRUE ~ "Others"
+    )
+  ) %>%
+  mutate(Farmed_Wild=case_when(
+      str_detect(品目名, "養殖") & !str_detect(その他, "養殖ではない") ~ "Farmed",
+      str_detect(その他, "養殖") & !str_detect(その他, "養殖ではない") ~ "Farmed",
+      !str_detect(その他, "養殖") | str_detect(その他, "養殖ではない") ~ "Wild",
+      !str_detect(その他, "養殖") | str_detect(その他, "養殖ではない") ~ "Wild",
+      TRUE ~ "Wild"
+    )
+  ) %>%
+  mutate(Fresh_Farmed=case_when(
+      Food_classfication=="Marine_products(freshwater)" & Farmed_Wild=="Wild" ~ "Freshwater, wild",
+      Food_classfication!="Marine_products(freshwater)" & Farmed_Wild=="Wild" ~ "Marine, wild",
+      Food_classfication=="Marine_products(freshwater)" & Farmed_Wild=="Farmed" ~ "Freshwater, aquaculture",
+      Food_classfication!="Marine_products(freshwater)" & Farmed_Wild=="Farmed" ~ "Marine, aquaculture",
+      TRUE ~ "-"
+    )
+  ) %>%
+  mutate(Ex_Detect=case_when(
+    Cs_total_fix>100 ~ "Ex",
+    Cs_total_fix>25 ~ "Detect",
+    !Cs_total_fix>100 ~ "ND"
+  ))
+
+# (A) Aquaculture marine products
+Fig11_A <- Fishery_data_ %>%
+  filter(Fresh_Farmed=="Marine, aquaculture") %>%
+  count(Fiscal_Year, Exceed) %>%
+  spread(Exceed, n) %>%
+  mutate(Ex=0) %>%
+  replace_na(list(Ex=0, `<NA>`=0)) %>%
+  mutate(Subtotal=Ex+`<NA>`) %>%
+  mutate(Rate=Ex/Subtotal*100) %>%
+  select(c("Fiscal_Year", "Ex", "Subtotal", "Rate"))
+
+# (B) Wild marine products
+Fig11_B <- Fishery_data_ %>%
+  filter(Fresh_Farmed=="Marine, wild") %>%
+  count(Fiscal_Year, Exceed) %>%
+  spread(Exceed, n) %>%
+  replace_na(list(Ex=0, `<NA>`=0)) %>%
+  mutate(Subtotal=Ex+`<NA>`) %>%
+  mutate(Rate=Ex/Subtotal*100) %>%
+  select(c("Fiscal_Year", "Ex", "Subtotal", "Rate"))
+
+# (C) Aquaculture freshwater products
+Fig11_C <- Fishery_data_ %>%
+  filter(Fresh_Farmed=="Freshwater, aquaculture") %>%
+  count(Fiscal_Year, Exceed) %>%
+  spread(Exceed, n) %>%
+  replace_na(list(Ex=0, `<NA>`=0)) %>%
+  mutate(Subtotal=Ex+`<NA>`) %>%
+  mutate(Rate=Ex/Subtotal*100) %>%
+  select(c("Fiscal_Year", "Ex", "Subtotal", "Rate"))
+
+
+# (D) Wild freshwater products
+Fig11_D <- Fishery_data_ %>%
+  filter(Fresh_Farmed=="Freshwater, wild") %>%
+  count(Fiscal_Year, Exceed) %>%
+  spread(Exceed, n) %>%
+  replace_na(list(Ex=0, `<NA>`=0)) %>%
+  mutate(Subtotal=Ex+`<NA>`) %>%
+  mutate(Rate=Ex/Subtotal*100) %>%
+  select(c("Fiscal_Year", "Ex", "Subtotal", "Rate"))
+
+rm(Fishery_data_)
+
+```
+
+
+#### Table 1. Number of foods in all categories reported according to the prefecture in Japan
+```{r}
+# Supplementary Table 1. Number of foods in all categories reported according to the prefecture in Japan
+Prefecture_0 <- {}
+Prefecture_subtotal <- readr::read_csv("./csv/Prefecture_location.csv")
+Prefecture_0 <- Prefecture_subtotal
+Calc_table_1 <- data_2012_2020_total_ %>%
+  merge(Prefecture_subtotal %>% select(-都道府県), by="Prefecture", all.x = T)
+
+for (Year_ in c(2012:2021)) {
+  Prefecture_ <- Calc_table_1 %>%
+    filter(Fiscal_Year==Year_) %>%
+    count(Prefecture)
+    colnames(Prefecture_) <- c("Prefecture", paste(Year_))
+  Prefecture_0 <- Prefecture_0 %>%
+    merge(
+      Prefecture_,
+      by="Prefecture", all=T
+    ) %>%
+  arrange(No.)
+}
+Table01 <- Prefecture_0
+rm(Prefecture_, Prefecture_0, Prefecture_subtotal, Calc_table_1)
+
+Table01 %>%
+  select(No., Prefecture, 都道府県, 県庁所在地, long, lat,
+         `2012`, `2013`, `2014`, `2015`, `2016`, `2017`, `2018`, `2019`, `2020`, `2021`) %>%
+  # View()
+  print()
+
+
+```
+
+
+#### Table 2. Number of general foods reported according to the prefecture in Japan
+```{r}
+# Supplementary table 2. Number of general foods reported according to the prefecture in Japan
+Prefecture_0 <- {}
+Prefecture_subtotal <- readr::read_csv("./csv/Prefecture_location.csv")
+Calc_table_1 <- data_2012_2020_total_ %>%
+  merge(Prefecture_subtotal %>% select(-都道府県), by="Prefecture", all.x = T)
+Gene_data_ <- Calc_table_1 %>% filter(Category_2=="General foods")
+
+Prefecture_0 <- Prefecture_subtotal
+# Prefecture_$Prefecture <- Prefecture_$Prefecture %>% as.factor()
+for (Year_ in c(2012:2021)) {
+  Prefecture_ <- Gene_data_ %>%
+    filter(Fiscal_Year==Year_) %>%
+    count(Prefecture)
+  colnames(Prefecture_) <- c("Prefecture", paste(Year_))
+  Prefecture_0 <- Prefecture_0 %>%
+    merge(
+      Prefecture_,
+      by="Prefecture", all=T
+    ) %>%
+  arrange(No.)
+}
+Table02 <- Prefecture_0
+rm(Prefecture_, Prefecture_0, Prefecture_subtotal, Calc_table_1, Gene_data_)
+
+Table02 %>%
+  select(No., Prefecture, 都道府県, 県庁所在地, long, lat,
+         `2012`, `2013`, `2014`, `2015`, `2016`, `2017`, `2018`, `2019`, `2020`, `2021`) %>%
+  # View()
+  print()
+
+```
+
+#### Table 3. Number of milk and infant foods reported according to the prefecture in Japan
+```{r}
+# Supplementary Table 3. Number of milk and infant foods reported according to the prefecture in Japan
+Prefecture_0 <- {}
+Prefecture_subtotal <- readr::read_csv("./csv/Prefecture_location.csv")
+Calc_table_1 <- data_2012_2020_total_ %>%
+  merge(Prefecture_subtotal %>% select(-都道府県), by="Prefecture", all.x = T)
+Milk_data_ <- Calc_table_1 %>% filter(Category_2=="Milk, infant foods")
+
+Prefecture_0 <- Prefecture_subtotal
+# Prefecture_$Prefecture <- Prefecture_$Prefecture %>% as.factor()
+for (Year_ in c(2012:2021)) {
+  Prefecture_ <- Milk_data_ %>%
+    filter(Fiscal_Year==Year_) %>%
+    count(Prefecture)
+  colnames(Prefecture_) <- c("Prefecture", paste(Year_))
+  Prefecture_0 <- Prefecture_0 %>%
+    merge(
+      Prefecture_,
+      by="Prefecture", all=T
+    ) %>%
+  arrange(No.)
+}
+Table03 <- Prefecture_0
+rm(Prefecture_, Prefecture_0, Prefecture_subtotal, Calc_table_1, Milk_data_)
+
+Table03 %>%
+  select(No., Prefecture, 都道府県, 県庁所在地, long, lat,
+         `2012`, `2013`, `2014`, `2015`, `2016`, `2017`, `2018`, `2019`, `2020`, `2021`) %>%
+  # View()
+  print()
+
+
+```
+
+
+#### Table 4. Number of drinking water including beverages reported according to the prefecture in Japan
+```{r}
+# Supplementary Table 4. Number of drinking water including beverages reported according to the prefecture in Japan
+Prefecture_0 <- {}
+Prefecture_subtotal <- readr::read_csv("./csv/Prefecture_location.csv")
+Calc_table_1 <- data_2012_2020_total_ %>%
+  merge(Prefecture_subtotal %>% select(-都道府県), by="Prefecture", all.x = T)
+Water_data_ <- Calc_table_1 %>% filter(Category_2=="Drinking water")
+Prefecture_0 <- Prefecture_subtotal
+
+# Prefecture_$Prefecture <- Prefecture_$Prefecture %>% as.factor()
+for (Year_ in c(2012:2021)) {
+  Prefecture_ <- Water_data_ %>%
+    filter(Fiscal_Year==Year_) %>%
+    count(Prefecture)
+  colnames(Prefecture_) <- c("Prefecture", paste(Year_))
+  Prefecture_0 <- Prefecture_0 %>%
+    merge(
+      Prefecture_,
+      by="Prefecture", all=T
+    ) %>%
+  arrange(No.)
+}
+Table04 <- Prefecture_0
+rm(Prefecture_, Prefecture_0, Prefecture_subtotal, Calc_table_1, Water_data_)
+
+Table04 %>%
+  select(No., Prefecture, 都道府県, 県庁所在地, long, lat,
+         `2012`, `2013`, `2014`, `2015`, `2016`, `2017`, `2018`, `2019`, `2020`, `2021`) %>%
+  # View()
+  print()
+
+
+```
+
+
+#### Table 5. Summary of 134,137Cs concentration in foodstuffs reported during April 2012-December 2020*
+```{r}
+# Table 5-1
+# Inspection_instrument including NaI, CsI
+data_1 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(!Cs_total_fix>5 | is.na(Cs_total_fix)) %>%
+                  filter(Inspection_instrument!="Ge" & Inspection_instrument!="―")) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_2 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument!="Ge" & Inspection_instrument!="―") %>%
+                  filter(Cs_total_fix>5)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_3 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument!="Ge" & Inspection_instrument!="―") %>%
+                  filter(Cs_total_fix>10)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_4 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument!="Ge" & Inspection_instrument!="―") %>%
+                  filter(Cs_total_fix>25)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_5 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument!="Ge" & Inspection_instrument!="―") %>%
+                  filter(Cs_total_fix>50)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_6 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument!="Ge" & Inspection_instrument!="―") %>%
+                  filter(Cs_total_fix>100)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+Table05_1 <-
+  bind_rows(data_1, data_2, data_3, data_4, data_5, data_6) %>% as.data.frame() %>%
+  select("General foods", "Milk, infant foods", "Drinking water") %>%
+  rename("General foods 1"="General foods", "Milk, infant foods 1"="Milk, infant foods", "Drinking water 1"="Drinking water")
+rownames(Table05_1) <-
+  c("Others", "Cs_total > 5", "Cs_total > 10", "Cs_total > 25", "Cs_total > 50", "Cs_total > 100")
+rm(data_1, data_2, data_3, data_4, data_5, data_6)
+
+# Table 5-2
+# Inspection_instrument including Ge
+data_1 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(!Cs_total_fix>5 | is.na(Cs_total_fix)) %>%
+                  filter(Inspection_instrument=="Ge")) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_2 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument=="Ge") %>%
+                  filter(Cs_total_fix>5)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_3 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument=="Ge") %>%
+                  filter(Cs_total_fix>10)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_4 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument=="Ge") %>%
+                  filter(Cs_total_fix>25)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_5 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument=="Ge") %>%
+                  filter(Cs_total_fix>50)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_6 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument=="Ge") %>%
+                  filter(Cs_total_fix>100)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+Table05_2 <-
+  bind_rows(data_1, data_2, data_3, data_4, data_5, data_6) %>% as.data.frame() %>%
+  select("General foods", "Milk, infant foods", "Drinking water") %>%
+  rename("General foods 2"="General foods", "Milk, infant foods 2"="Milk, infant foods", "Drinking water 2"="Drinking water")
+rownames(Table05_2) <-
+  c("Others", "Cs_total > 5", "Cs_total > 10", "Cs_total > 25", "Cs_total > 50", "Cs_total > 100")
+rm(data_1, data_2, data_3, data_4, data_5, data_6)
+
+# Table 5-3
+# Inspection_instrument including undefind
+data_1 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(!Cs_total_fix>5 | is.na(Cs_total_fix)) %>%
+                  filter(Inspection_instrument=="―")) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_2 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument=="―") %>%
+                  filter(Cs_total_fix>5)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_3 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument=="―") %>%
+                  filter(Cs_total_fix>10)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_4 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument=="―") %>%
+                  filter(Cs_total_fix>25)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_5 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument=="―") %>%
+                  filter(Cs_total_fix>50)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_6 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Inspection_instrument=="―") %>%
+                  filter(Cs_total_fix>100)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+Table05_3 <-
+  bind_rows(data_1, data_2, data_3, data_4, data_5, data_6) %>% as.data.frame() %>%
+  select("General foods", "Milk, infant foods", "Drinking water") %>%
+  rename("General foods 3"="General foods", "Milk, infant foods 3"="Milk, infant foods", "Drinking water 3"="Drinking water")
+rownames(Table05_3) <-
+  c("Others", "Cs_total > 5", "Cs_total > 10", "Cs_total > 25", "Cs_total > 50", "Cs_total > 100")
+rm(data_1, data_2, data_3, data_4, data_5, data_6)
+
+# Table 5-4
+# Inspection_instrument including Ge, NaI, CsI and undefind
+data_1 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(!Cs_total_fix>5 | is.na(Cs_total_fix))) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_2 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Cs_total_fix>5)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_3 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Cs_total_fix>10)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_4 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Cs_total_fix>25)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_5 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Cs_total_fix>50)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+data_6 <- xtabs(~ Category_2, data_2012_2020_total_ %>%
+                  filter(Cs_total_fix>100)) %>%
+  data.frame() %>% spread(Category_2, Freq)
+Table05_4 <-
+  bind_rows(data_1, data_2, data_3, data_4, data_5, data_6) %>% as.data.frame() %>%
+  select("General foods", "Milk, infant foods", "Drinking water") %>%
+  rename("General foods 4"="General foods", "Milk, infant foods 4"="Milk, infant foods", "Drinking water 4"="Drinking water")
+rownames(Table05_4) <-
+  c("Others", "Cs_total > 5", "Cs_total > 10", "Cs_total > 25", "Cs_total > 50", "Cs_total > 100")
+rm(data_1, data_2, data_3, data_4, data_5, data_6)
+
+cbind(Table05_1, Table05_2, Table05_3, Table05_4) %>%
+  # View()
+  print()
+
+```
+
+
+#### Table 6. List of general food category foodstuffs* reported to exceed the JML (100 Bq/kg)
+```{r}
+ Table06 <- data_2012_2020_total_ %>%
+  filter(Exceed=="Ex") %>%
+  count(Category, Food_classfication, Item, sort=T) %>%
+  # View()
+  print()
+
+
+```
+
+
+#### Table 7. Results of 134,137Cs monitoring of fishery food products excluding freshwater food products*
+```{r}
+# Fishery products
+# Data using Cs detection instrument reported, “Ge,” were used for analysis.
+
+data_Fishery_ <- data_2012_2020_total_ %>%
+    filter(Inspection_instrument=="Ge") %>%
+    filter(Category=="Fishery products")
+
+# Other fishery foodstuffs except freshwater fishery foodstuffs were defined as marine fishery foodstuffs.
+# Samples marketed or non-marketed foodstuffs were summarized.
+# The foodstuffs that were marketed and produced for sales were counted.
+data_1 <- data_Fishery_ %>%
+  filter(Food_classfication!="Marine_products(freshwater)") %>%
+  filter(Market=="Market products") %>%
+  count(Fiscal_Year) %>%
+  rename(Market_Examined=n)
+data_2 <- data_Fishery_ %>%
+  filter(Food_classfication!="Marine_products(freshwater)") %>%
+  filter(Market=="Market products") %>%
+  filter(Exceed=="Ex") %>%
+  count(Fiscal_Year) %>%
+  rename(Market_Exceed=n)
+Market_fishery_ <- data_1 %>%
+  merge(data_2, by="Fiscal_Year", all.x=T) %>%
+  replace_na(list(Market_Exceed=0)) %>%
+  mutate(Market_Rate=Market_Exceed/Market_Examined*100)
+
+# The foodstuffs that were non-marketed and produced not for sales were counted.
+data_1 <- data_Fishery_ %>%
+  filter(Food_classfication!="Marine_products(freshwater)") %>%
+  filter(Market=="Non market products") %>%
+  count(Fiscal_Year) %>%
+  rename(Non_Market_Examined=n)
+data_2 <- data_Fishery_ %>%
+  filter(Food_classfication!="Marine_products(freshwater)") %>%
+  filter(Market=="Non market products") %>%
+  filter(Exceed=="Ex") %>%
+  count(Fiscal_Year) %>%
+  rename(Non_Market_Exceed=n)
+data_3 <- data_Fishery_ %>%
+  filter(Food_classfication!="Marine_products(freshwater)") %>%
+  filter(Market=="Produce for sales") %>%
+  count(Fiscal_Year) %>%
+  rename(For_Sales_Examined=n)
+data_4 <- data_Fishery_ %>%
+  filter(Food_classfication!="Marine_products(freshwater)") %>%
+  filter(Market=="Produce for sales") %>%
+  filter(Exceed=="Ex") %>%
+  count(Fiscal_Year) %>%
+  rename(For_Sales_Exceed=n)
+data_5 <- data_Fishery_ %>%
+  filter(Food_classfication!="Marine_products(freshwater)") %>%
+  filter(Market=="Produce not for sales") %>%
+  count(Fiscal_Year) %>%
+  rename(Not_For_Sales_Examined=n)
+data_6 <- data_Fishery_ %>%
+  filter(Food_classfication!="Marine_products(freshwater)") %>%
+  filter(Market=="Produce not for sales") %>%
+  filter(Exceed=="Ex") %>%
+  count(Fiscal_Year) %>%
+  rename(Not_For_Sales_Exceed=n)
+Non_market_fishery_ <- data_1 %>%
+  merge(data_2, by="Fiscal_Year", all=T) %>%
+  merge(data_3, by="Fiscal_Year", all=T) %>%
+  merge(data_4, by="Fiscal_Year", all=T) %>%
+  merge(data_5, by="Fiscal_Year", all=T) %>%
+  merge(data_6, by="Fiscal_Year", all=T) %>%
+  replace_na(list(Non_Market_Exceed=0, Non_Market_Examined=0,
+                  For_Sales_Exceed=0, For_Sales_Examined=0,
+                  Not_For_Sales_Exceed=0, Not_For_Sales_Examined=0)) %>%
+  mutate(Non_Market_Rate=
+           (Non_Market_Exceed+For_Sales_Exceed+Not_For_Sales_Exceed)/
+           (Non_Market_Examined+For_Sales_Examined+Not_For_Sales_Examined)*100)
+Market_total <- Market_fishery_ %>% merge(Non_market_fishery_, by="Fiscal_Year", all.x=T) %>%
+  mutate(SubTotal = Market_Examined+Non_Market_Examined+For_Sales_Examined+Not_For_Sales_Examined)
+Table07 <- Market_total
+rm(data_Fishery_, data_1, data_2, data_3, data_4, data_5, data_6, Non_market_fishery_, Market_fishery_, Market_total)
+
+Table07 %>%
+  # View()
+  print()
+
+
+```
+
+
+#### Table 8. Results of 134,137Cs monitoring of freshwater food products*
+```{r}
+# Supplementary Table 8. Results of 134,137Cs monitoring of freshwater food products*
+# Fishery products
+# Data using Cs detection instrument reported, “Ge,” were used for analysis.
+
+data_Fishery_ <- data_2012_2020_total_ %>%
+    filter(Inspection_instrument=="Ge") %>%
+    filter(Category=="Fishery products")
+
+# Marine_products(freshwater)
+# Market Products or Produce for sales
+
+# Freshwater fishery foodstuffs were summarized.
+# Samples marketed or non-marketed foodstuffs were summarized.
+data_1 <- data_Fishery_ %>%
+  filter(Food_classfication=="Marine_products(freshwater)") %>%
+  filter(Market=="Market products") %>%
+  count(Fiscal_Year) %>%
+  rename(Market_Examined=n)
+data_2 <- data_Fishery_ %>%
+  filter(Food_classfication=="Marine_products(freshwater)") %>%
+  filter(Market=="Market products") %>%
+  filter(Exceed=="Ex") %>%
+  count(Fiscal_Year) %>%
+  rename(Market_Exceed=n)
+Market_fishery_ <- data_1 %>%
+  merge(data_2, by="Fiscal_Year", all.x=T) %>%
+  replace_na(list(Market_Exceed=0)) %>%
+  mutate(Market_Rate=Market_Exceed/Market_Examined*100)
+
+# The foodstuffs that were non-marketed and produced not for sales were counted.
+data_1 <- data_Fishery_ %>%
+  filter(Food_classfication=="Marine_products(freshwater)") %>%
+  filter(Market=="Non market products") %>%
+  count(Fiscal_Year) %>%
+  rename(Non_Market_Examined=n)
+data_2 <- data_Fishery_ %>%
+  filter(Food_classfication=="Marine_products(freshwater)") %>%
+  filter(Market=="Non market products") %>%
+  filter(Exceed=="Ex") %>%
+  count(Fiscal_Year) %>%
+  rename(Non_Market_Exceed=n)
+data_3 <- data_Fishery_ %>%
+  filter(Food_classfication=="Marine_products(freshwater)") %>%
+  filter(Market=="Produce for sales") %>%
+  count(Fiscal_Year) %>%
+  rename(For_Sales_Examined=n)
+data_4 <- data_Fishery_ %>%
+  filter(Food_classfication=="Marine_products(freshwater)") %>%
+  filter(Market=="Produce for sales") %>%
+  filter(Exceed=="Ex") %>%
+  count(Fiscal_Year) %>%
+  rename(For_Sales_Exceed=n)
+data_5 <- data_Fishery_ %>%
+  filter(Food_classfication=="Marine_products(freshwater)") %>%
+  filter(Market=="Produce not for sales") %>%
+  count(Fiscal_Year) %>%
+  rename(Not_For_Sales_Examined=n)
+data_6 <- data_Fishery_ %>%
+  filter(Food_classfication=="Marine_products(freshwater)") %>%
+  filter(Market=="Produce not for sales") %>%
+  filter(Exceed=="Ex") %>%
+  count(Fiscal_Year) %>%
+  rename(Not_For_Sales_Exceed=n)
+Non_market_fishery_ <- data_1 %>%
+  merge(data_2, by="Fiscal_Year", all=T) %>%
+  merge(data_3, by="Fiscal_Year", all=T) %>%
+  merge(data_4, by="Fiscal_Year", all=T) %>%
+  merge(data_5, by="Fiscal_Year", all=T) %>%
+  merge(data_6, by="Fiscal_Year", all=T) %>%
+  replace_na(list(Non_Market_Exceed=0, Non_Market_Examined=0,
+                  For_Sales_Exceed=0, For_Sales_Examined=0,
+                  Not_For_Sales_Exceed=0, Not_For_Sales_Examined=0)) %>%
+  mutate(Non_Market_Rate=
+           (Non_Market_Exceed+For_Sales_Exceed+Not_For_Sales_Exceed)/
+           (Non_Market_Examined+For_Sales_Examined+Not_For_Sales_Examined)*100)
+Market_total <- Market_fishery_ %>% merge(Non_market_fishery_, by="Fiscal_Year", all.x=T) %>%
+  mutate(SubTotal = Market_Examined+Non_Market_Examined+For_Sales_Examined+Not_For_Sales_Examined)
+Table08 <- Market_total
+rm(data_Fishery_, data_1, data_2, data_3, data_4, data_5, data_6,
+   Non_market_fishery_, Market_fishery_, Market_total)
+
+Table08 %>%
+  # View()
+  print()
+
+
+```
+
+
+#### Table 9. List of fishery food products reported to have a 134,137Cs concentration >25 Bq/kg during FY 2016-2021*
+```{r}
+#### Supplementary Table 9. List of fishery food products reported to have a 134,137Cs concentration >25 Bq/kg during 2016-2021*
+#### List of fishery foods having Cs detected between Fiscal year 2016 and 2021
+data_Fishery_ <- data_2012_2020_total_ %>%
+  filter(Inspection_instrument=="Ge") %>%
+  filter(Category=="Fishery products" & !is.na(Fiscal_Year)) %>%
+  mutate(
+    Marine_Water = case_when(Food_classfication=="Marine_products(freshwater)" ~ "Freshwater",
+                             Food_classfication!="Marine_products(freshwater)" ~ "Marine")
+    ) %>%
+  mutate(Period=case_when(
+      Fiscal_Year==2012 | Fiscal_Year==2013 | Fiscal_Year==2014 | Fiscal_Year==2015 ~ "Early",
+      Fiscal_Year==2016 | Fiscal_Year==2017 | Fiscal_Year==2018 | Fiscal_Year==2019 ~ "Middle",
+      Fiscal_Year==2020 | Fiscal_Year==2021 ~ "Later",
+      TRUE ~ "Others"
+    )
+  ) %>%
+  mutate(Farmed_Wild=case_when(
+      str_detect(品目名, "養殖") & !str_detect(その他, "養殖ではない") ~ "Farmed",
+      str_detect(その他, "養殖") & !str_detect(その他, "養殖ではない") ~ "Farmed",
+      !str_detect(その他, "養殖") | str_detect(その他, "養殖ではない") ~ "Wild",
+      !str_detect(その他, "養殖") | str_detect(その他, "養殖ではない") ~ "Wild",
+      TRUE ~ "Wild"
+    )
+  ) %>%
+  mutate(Fresh_Farmed=case_when(
+      Food_classfication=="Marine_products(freshwater)" & Farmed_Wild=="Wild" ~ "Freshwater, wild",
+      Food_classfication!="Marine_products(freshwater)" & Farmed_Wild=="Wild" ~ "Marine, wild",
+      Food_classfication=="Marine_products(freshwater)" & Farmed_Wild=="Farmed" ~ "Freshwater, aquaculture",
+      Food_classfication!="Marine_products(freshwater)" & Farmed_Wild=="Farmed" ~ "Marine, aquaculture",
+      TRUE ~ "-"
+    )
+  ) %>%
+  mutate(Ex_Detect=case_when(
+    Cs_total_fix>100 ~ "Ex",
+    Cs_total_fix>25 ~ "Detect",
+    !Cs_total_fix>100 ~ "ND"
+  ))
+
+
+
+# 2016_04 - 2022_03
+# Freshwater and Wild
+Table09_1 <- data_Fishery_ %>%
+  filter(Period!="Early") %>%
+  filter(Cs_total_fix>25) %>%
+  filter(Food_classfication=="Marine_products(freshwater)") %>%
+  filter(Farmed_Wild!="Farmed") %>%
+  count(品目名, Item, Farmed_Wild, sort=TRUE) %>% print()
+
+# Not Freshwater and Wild
+Table09_2 <- data_Fishery_ %>%
+  filter(Period!="Early") %>%
+  filter(Cs_total_fix>25) %>%
+  filter(Food_classfication!="Marine_products(freshwater)") %>%
+  filter(Farmed_Wild!="Farmed") %>%
+  count(品目名, Item, Farmed_Wild, sort=TRUE) %>% print()
+
+# Freshwater and Farmed
+Table09_3 <- data_Fishery_ %>%
+  filter(Period!="Early") %>%
+  filter(Cs_total_fix>25) %>%
+  filter(Food_classfication=="Marine_products(freshwater)") %>%
+  filter(Farmed_Wild=="Farmed") %>%
+  count(品目名, Item, Farmed_Wild, sort=TRUE) %>% print()
+
+# Not Freshwater and Farmed
+Table09_4 <- data_Fishery_ %>%
+  filter(Period!="Early") %>%
+  filter(Cs_total_fix>25) %>%
+  filter(Food_classfication!="Marine_products(freshwater)") %>%
+  filter(Farmed_Wild=="Farmed") %>%
+  count(品目名, Item, Farmed_Wild, sort=TRUE) %>% print()
+
+rm(data_Fishery_)
+
+```
+
+
+#### Table 10. Data of freshwater fishery foodstuffs reported and sorted according to the prefectural government in Japan*
+```{r}
+# Supplementary Table 10. Data of freshwater fishery foodstuffs reported and sorted according to the prefectural government in Japan*
+Prefecture_subtotal <- readr::read_csv("./csv/Prefecture_location.csv")
+Fishery_data_ <- data_2012_2020_total_ %>%
+  filter(Category=="Fishery products") %>%
+  filter(Food_classfication=="Marine_products(freshwater)")
+
+Prefecture_0 <- Prefecture_subtotal
+for (Year_ in c(2012:2021)) {
+  data_fiscal_ <-
+      Fishery_data_%>%
+      filter(Fiscal_Year==Year_) %>%
+      count(Prefecture, Exceed) %>%
+      spread(Exceed, n) %>%
+      replace_na(list(Ex=0, `<NA>`=0))
+  
+  if(colnames(data_fiscal_[2]) == "Ex"){
+    Prefecture_ex <- 
+      data_fiscal_ %>%
+      mutate(Examined=(Ex+`<NA>`)) %>%
+      mutate(Per=Ex/(Examined)*100) %>%
+      subset(,c("Prefecture", "Ex", "Examined", "Per"))
+    } else {
+    Prefecture_ex <-
+      data_fiscal_ %>%
+      mutate(Ex=0) %>%
+      mutate(Examined=`<NA>`) %>%
+      mutate(Per=0) %>%
+      mutate(Examined=(Ex+`<NA>`)) %>%
+      mutate(Per=Ex/(Examined)*100) %>%
+      subset(,c("Prefecture", "Ex", "Examined", "Per"))
+    }
+
+  colnames(Prefecture_ex) <- c("Prefecture",
+                              paste0(Year_,"_Ex"),
+                              paste0(Year_,"_Examined"),
+                              paste0(Year_,"_Per"))
+
+  Prefecture_0 <- Prefecture_0 %>%
+    merge(
+      Prefecture_ex,
+      by="Prefecture", all=T
+      # all=T
+    ) %>%
+  arrange(No.)
+}
+
+Table10 <- Prefecture_0
+rm(data_fiscal_, Fishery_data_, Prefecture_subtotal, Prefecture_0, Prefecture_ex)
+
+Table10 %>%
+  select(
+    # "No.", "Prefecture", "都道府県", "県庁所在地", "long", "lat",
+    "No.", "Prefecture", "long", "lat",
+    "2012_Ex", "2012_Examined", "2012_Per",
+    "2013_Ex", "2013_Examined", "2013_Per",
+    "2014_Ex", "2014_Examined", "2014_Per",
+    "2015_Ex", "2015_Examined", "2015_Per",
+    "2016_Ex", "2016_Examined", "2016_Per",
+    "2017_Ex", "2017_Examined", "2017_Per",
+    "2018_Ex", "2018_Examined", "2018_Per",
+    "2019_Ex", "2019_Examined", "2019_Per",
+    "2020_Ex", "2020_Examined", "2020_Per",
+    "2021_Ex", "2021_Examined", "2021_Per"
+  ) %>%
+  print()
+  # View()
+
+
+
+```
+
+#### Table 11. Data of other fishery foodstuffs other than marine fishery foodstuffs reported and sorted according to the prefectural government in Japan*
+```{r}
+# Supplementary Table 11. Data of other fishery foodstuffs other than marine fishery foodstuffs reported and sorted according to the prefectural government in Japan*
+Prefecture_0 <- {}
+Prefecture_ex <- {}
+Prefecture_subtotal <- readr::read_csv("./csv/Prefecture_location.csv")
+Fishery_data_ <- data_2012_2020_total_ %>%
+  filter(Category=="Fishery products") %>%
+  filter(Food_classfication!="Marine_products(freshwater)")
+
+Prefecture_0 <- Prefecture_subtotal
+for (Year_ in c(2012:2021)) {
+  data_fiscal_ <-
+      Fishery_data_%>%
+      filter(Fiscal_Year==Year_) %>%
+      count(Prefecture, Exceed) %>%
+      spread(Exceed, n) %>%
+      replace_na(list(Ex=0, `<NA>`=0))
+  
+  if(colnames(data_fiscal_[2]) == "Ex"){
+    Prefecture_ex <- 
+      data_fiscal_ %>%
+      mutate(Examined=(Ex+`<NA>`)) %>%
+      mutate(Per=Ex/(Examined)*100) %>%
+      subset(,c("Prefecture", "Ex", "Examined", "Per"))
+    } else {
+    Prefecture_ex <-
+      data_fiscal_ %>%
+      mutate(Ex=0) %>%
+      mutate(Examined=`<NA>`) %>%
+      mutate(Per=0) %>%
+      mutate(Examined=(Ex+`<NA>`)) %>%
+      mutate(Per=Ex/(Examined)*100) %>%
+      subset(,c("Prefecture", "Ex", "Examined", "Per"))
+    }
+
+  colnames(Prefecture_ex) <- c("Prefecture",
+                              paste0(Year_,"_Ex"),
+                              paste0(Year_,"_Examined"),
+                              paste0(Year_,"_Per"))
+
+  Prefecture_0 <- Prefecture_0 %>%
+    merge(
+      Prefecture_ex,
+      by="Prefecture", all=T
+      # all=T
+    ) %>%
+  arrange(No.)
+}
+Table11 <-Prefecture_0
+rm(data_fiscal_, Fishery_data_, Prefecture_subtotal, Prefecture_0, Prefecture_ex)
+
+Table11 %>%
+  subset(,c(
+    # "No.", "Prefecture", "都道府県", "県庁所在地", "long", "lat",
+    "No.", "Prefecture", "long", "lat",
+    "2012_Ex", "2012_Examined", "2012_Per",
+    "2013_Ex", "2013_Examined", "2013_Per",
+    "2014_Ex", "2014_Examined", "2014_Per",
+    "2015_Ex", "2015_Examined", "2015_Per",
+    "2016_Ex", "2016_Examined", "2016_Per",
+    "2017_Ex", "2017_Examined", "2017_Per",
+    "2018_Ex", "2018_Examined", "2018_Per",
+    "2019_Ex", "2019_Examined", "2019_Per",
+    "2020_Ex", "2020_Examined", "2020_Per",
+    "2021_Ex", "2021_Examined", "2021_Per"
+    )
+  ) %>%
+  print()
+  # View()
+
+
+```
+
+
+#### Table 12. Reported 134,137Cs concentration in fishery food products during FY 2016-2021* 
+```{r}
+# Supplementary Table 12. Reported 134,137Cs concentration in fishery food products during FY 2016-2021* 
+
+data_2012_2020_fish_ <- data_2012_2020_total_ %>%
+  filter(Inspection_instrument=="Ge") %>%
+  filter(Category=="Fishery products" & !is.na(Fiscal_Year)) %>%
+  mutate(
+    Marine_Water = case_when(Food_classfication=="Marine_products(freshwater)" ~ "Freshwater",
+                             Food_classfication!="Marine_products(freshwater)" ~ "Others")
+    ) %>%
+  mutate(Period=case_when(
+      Fiscal_Year==2012 | Fiscal_Year==2013 | Fiscal_Year==2014 | Fiscal_Year==2015 ~ "Early",
+      Fiscal_Year==2016 | Fiscal_Year==2017 | Fiscal_Year==2018 | Fiscal_Year==2019 ~ "Middle",
+      Fiscal_Year==2020 | Fiscal_Year==2021 ~ "Later",
+      TRUE ~ "Others"
+    )
+  ) %>%
+  mutate(Farmed_Wild=case_when(
+      str_detect(品目名, "養殖") & !str_detect(その他, "養殖ではない") ~ "Farmed",
+      str_detect(その他, "養殖") & !str_detect(その他, "養殖ではない") ~ "Farmed",
+      !str_detect(その他, "養殖") | str_detect(その他, "養殖ではない") ~ "Wild",
+      !str_detect(その他, "養殖") | str_detect(その他, "養殖ではない") ~ "Wild",
+      TRUE ~ "Wild"
+    )
+  ) %>%
+  mutate(Fresh_Farmed=case_when(
+      Food_classfication=="Marine_products(freshwater)" & Farmed_Wild=="Wild" ~ "Freshwater, wild",
+      Food_classfication!="Marine_products(freshwater)" & Farmed_Wild=="Wild" ~ "Others, wild",
+      Food_classfication=="Marine_products(freshwater)" & Farmed_Wild=="Farmed" ~ "Freshwater, aquaculture",
+      Food_classfication!="Marine_products(freshwater)" & Farmed_Wild=="Farmed" ~ "Others, aquaculture",
+      TRUE ~ "-"
+    )
+  ) %>%
+  mutate(DetectOrNot=case_when(
+    Cs_total_fix>25 ~ "Detected",
+    !Cs_total_fix>25 | is.na(Cs_total_fix) ~ "ND"
+  ))
+# FY 2016 to 2021
+Fishery_Early <- data_2012_2020_fish_ %>%
+  filter(Period!="Early")
+Table12 <- Fishery_Early %>%
+  count(Fresh_Farmed) %>%
+  merge(Fishery_Early %>%
+          count(Fresh_Farmed, DetectOrNot) %>% spread(DetectOrNot,n),
+        by="Fresh_Farmed", all.x=T) %>%
+  merge(Fishery_Early %>%
+          count(Fresh_Farmed, Exceed) %>% spread(Exceed,n),
+        by="Fresh_Farmed", all.x=T) %>%
+  replace_na(list(Detected=0, ND=0, Ex=0, `<NA>`=0)) %>%
+  mutate(Detect_Rate=Detected/n*100) %>%
+  mutate(ND_Rate=ND/n*100) %>%
+  mutate(Ex_Rate=Ex/n*100) %>%
+  mutate(NotEx_Rate=`<NA>`/n*100)
+rm(data_2012_2020_fish_, Fishery_Early)
+
+Table12 %>%
+  subset(,c(Fresh_Farmed, n, Detected, Detect_Rate, ND, ND_Rate, Ex, Ex_Rate, `<NA>`, NotEx_Rate, Ex_Rate)) %>%
+  arrange(
+    c("Others, aquaculture", "Freshwater, aquaculture", "Others, wild", "Freshwater, wild")
+    ) %>%
+  # View()
+  print()
+
+
+```
+
