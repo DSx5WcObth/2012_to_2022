@@ -651,6 +651,8 @@ Fig1 <- data_2012_2020_total_ %>%
 # Freshwater products were shaded in line. Marine products were black-painted
 # Data using Cs detection instruments reported, “Ge”, “CsI”, “NaI” and  “-,” were used for analysis.
 
+# "Marine products(freshwater)" are the freshwater fishery products.
+
 data_Ex_Item_0 <- data_2012_2020_total_ %>%
   count(Food_classfication, Exceed) %>%
   spread(Exceed, n) %>%
@@ -711,8 +713,9 @@ rm(data_Ex_Item_, data_Ex_Item_0, data_Ex_Item_Year_)
 
 # Samples marketed or non-marketed foodstuffs were summarized.
 
+# "Marine products(freshwater)" are the freshwater fishery products.
+
 # The foodstuffs that were marketed and produced for sales were counted.
-# data_2012_2020_total_ %>% count(Market)
 
 Fig3_A <- data_2012_2020_total_ %>%
   filter(Inspection_instrument=="Ge" & Category=="Fishery products") %>%
@@ -734,6 +737,8 @@ Fig3_A%>%
 # Data using Cs detection instrument reported, “Ge,” were used for analysis.
 
 # Other fishery foodstuffs except freshwater fishery foodstuffs were defined as marine fishery foodstuffs.
+
+# "Marine products(freshwater)" are the freshwater fishery products.
 
 # Wild or aquaculture fishery foodstuffs were counted.
 Non_Market_0 <- data_2012_2020_total_ %>%
@@ -797,9 +802,9 @@ rm(Non_Market_0, Non_Market, For_Sales, Not_For_Sales)
 
 # Samples marketed or non-marketed foodstuffs were summarized.
 
-# The foodstuffs that were marketed and produced for sales were counted.
-# data_2012_2020_total_ %>% count(Market)
+# "Marine products(freshwater)" are the freshwater fishery products.
 
+# The foodstuffs that were marketed and produced for sales were counted.
 Fig3_C <- data_2012_2020_total_ %>%
   filter(Inspection_instrument=="Ge" & Category=="Fishery products") %>%
   filter(Market=="Market products") %>%
@@ -821,6 +826,8 @@ Fig3_C %>%
 # Data using Cs detection instrument reported, “Ge,” were used for analysis.
 
 # Freshwater fishery foodstuffs were summarized.
+
+# "Marine products(freshwater)" are the freshwater fishery products.
 
 # Wild or aquaculture fishery foodstuffs were counted.
 Non_Market_0 <- data_2012_2020_total_ %>%
@@ -877,6 +884,10 @@ rm(Non_Market_0, Non_Market, For_Sales, Not_For_Sales)
 
 # fig.4 Comparison of the number of marine and fresh water foodstuffs having Cs detected and above the threshold concentration between year FY 2016 - 2021
 ```{r}
+# Data using Cs detection instrument reported, “Ge,” were used for analysis.
+
+# "Marine products(freshwater)" are the freshwater fishery products.
+
 data_2012_2020_fish_ <- data_2012_2020_total_ %>%
   filter(Inspection_instrument=="Ge") %>%
   filter(Category=="Fishery products" & !is.na(Fiscal_Year)) %>%

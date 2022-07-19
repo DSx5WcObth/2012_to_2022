@@ -605,7 +605,6 @@ Fig07_B <- Fig07_B +
 #Supplementary Figure 8. The annual trend in the reported instruments used for detection of Cs concentration in foodstuffs in the database
 # Ge, germanium semiconductor detector; CsI&NaI, gamma spectrometry with sodium iodide, NaI(TI), and cesium iodine, CsI(TI), scintillation detectors; -, including no indicated information and a non-destructive method.
 
-
 Fig08 <- data_2012_2020_total_ %>%
   filter(Item!="Cattle meat" & !str_detect(その他,"全頭検査")) %>%
   filter(Item!="Cattle meat" & !str_detect(その他,"全島検査")) %>%
@@ -651,9 +650,9 @@ Fig09_NonMarket <- data_2012_2020_total_ %>%
 ```{r}
 # Supplementary Figure 10. Rate of foodstuffs exceeding the JML in the general food category
 # The pie graph shows the rate of foodstuffs reported at > 100 Bq/kg in the general food category during FY 2012-2021. The number and rate of general foodstuffs reported are summarized in the table. All data reported in the database were included in the analysis.
+# “Marine products(freshwater)” are the freshwater fishery products.
 
 Fig10 <- data_2012_2020_total_ %>%
-  # filter(Exceed=="Ex") %>%
   count(Food_classfication, Exceed) %>%
   spread(Exceed, n) %>%
   arrange(desc(Ex), desc(`<NA>`)) %>%
@@ -670,8 +669,8 @@ Fig10 <- data_2012_2020_total_ %>%
 ```{r}
 # Supplementary Figure 11. Results of Cs concentration data analyzed for the reported fishery foodstuffs 
 # Annual trends of aquaculture or wild marine products (a or b, respectively) and aquaculture or wild freshwater products (c and d, respectively) examined and reported exceeding the JML (100 Bq/kg). All data reported in the database were included in the analysis.
-
 # Aquaculture or wild marine products , Aquaculture or wild freshwater products 
+# “Marine products(freshwater)” are the freshwater fishery products.
 Fishery_data_ <- data_2012_2020_total_ %>%
   filter(Category=="Fishery products" & !is.na(Fiscal_Year)) %>%
   mutate(
@@ -1035,6 +1034,7 @@ cbind(Table05_1, Table05_2, Table05_3, Table05_4) %>%
 
 #### Table 6. List of general food category foodstuffs* reported to exceed the JML (100 Bq/kg)
 ```{r}
+# “Marine products(freshwater)” are the freshwater fishery products.
  Table06 <- data_2012_2020_total_ %>%
   filter(Exceed=="Ex") %>%
   count(Category, Food_classfication, Item, sort=T) %>%
@@ -1049,6 +1049,7 @@ cbind(Table05_1, Table05_2, Table05_3, Table05_4) %>%
 ```{r}
 # Fishery products
 # Data using Cs detection instrument reported, “Ge,” were used for analysis.
+# “Marine products(freshwater)” are the freshwater fishery products.
 
 data_Fishery_ <- data_2012_2020_total_ %>%
     filter(Inspection_instrument=="Ge") %>%
@@ -1137,6 +1138,7 @@ Table07 %>%
 # Supplementary Table 8. Results of 134,137Cs monitoring of freshwater food products*
 # Fishery products
 # Data using Cs detection instrument reported, “Ge,” were used for analysis.
+# “Marine products(freshwater)” are the freshwater fishery products.
 
 data_Fishery_ <- data_2012_2020_total_ %>%
     filter(Inspection_instrument=="Ge") %>%
@@ -1227,6 +1229,7 @@ Table08 %>%
 ```{r}
 #### Supplementary Table 9. List of fishery food products reported to have a 134,137Cs concentration >25 Bq/kg during 2016-2021*
 #### List of fishery foods having Cs detected between Fiscal year 2016 and 2021
+# “Marine products(freshwater)” are the freshwater fishery products.
 data_Fishery_ <- data_2012_2020_total_ %>%
   filter(Inspection_instrument=="Ge") %>%
   filter(Category=="Fishery products" & !is.na(Fiscal_Year)) %>%
@@ -1306,6 +1309,7 @@ rm(data_Fishery_)
 #### Table 10. Data of freshwater fishery foodstuffs reported and sorted according to the prefectural government in Japan*
 ```{r}
 # Supplementary Table 10. Data of freshwater fishery foodstuffs reported and sorted according to the prefectural government in Japan*
+# “Marine products(freshwater)” are the freshwater fishery products.
 Prefecture_subtotal <- readr::read_csv("./csv/Prefecture_location.csv")
 Fishery_data_ <- data_2012_2020_total_ %>%
   filter(Category=="Fishery products") %>%
@@ -1379,8 +1383,7 @@ Table10 %>%
 #### Table 11. Data of other fishery foodstuffs other than marine fishery foodstuffs reported and sorted according to the prefectural government in Japan*
 ```{r}
 # Supplementary Table 11. Data of other fishery foodstuffs other than marine fishery foodstuffs reported and sorted according to the prefectural government in Japan*
-Prefecture_0 <- {}
-Prefecture_ex <- {}
+# “Marine products(freshwater)” are the freshwater fishery products.
 Prefecture_subtotal <- readr::read_csv("./csv/Prefecture_location.csv")
 Fishery_data_ <- data_2012_2020_total_ %>%
   filter(Category=="Fishery products") %>%
@@ -1454,7 +1457,7 @@ Table11 %>%
 #### Table 12. Reported 134,137Cs concentration in fishery food products during FY 2016-2021* 
 ```{r}
 # Supplementary Table 12. Reported 134,137Cs concentration in fishery food products during FY 2016-2021* 
-
+# “Marine products(freshwater)” are the freshwater fishery products.
 data_2012_2020_fish_ <- data_2012_2020_total_ %>%
   filter(Inspection_instrument=="Ge") %>%
   filter(Category=="Fishery products" & !is.na(Fiscal_Year)) %>%
