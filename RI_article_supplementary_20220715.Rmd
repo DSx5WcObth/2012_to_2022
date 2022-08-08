@@ -426,7 +426,15 @@ fukushima_data_ <- tibble(city="Fukushima_Daiichi", lat=37.421671, long=141.0327
 # map shape data loading
 # data source https://www.naturalearthdata.com/downloads/
 # Note:
+# The following figures were made with Natural Earth. Free vector and raster map data @ naturalearthdata.com.
+# S3 Fig. Maps of all examined foodstuffs reported during FY 2012–2021.
+# S4 Fig. Maps of all examined “general foodstuffs” reported during FY 2012–2021.
+# S5 Fig. Maps of all examined “milk and infant foodstuffs” reported during FY 2012–2021.
+# S6 Fig. Maps of all examined “drinking water including soft drinks containing tea as a raw material” reported during FY 2012– 2021.
+# Note:
 # The original file distributed from the above URL was fixed for the information on "name_local" for Shizuoka prefecture to represent the actual information.
+# This code is Japanese Fonts . Please download "IPAexGothic".
+# https://moji.or.jp/ipafont/
 data_0 <- sf::st_read("./ne_10m_admin_1_states_provinces") %>%
   filter(adm0_a3 == 'JPN')
 data_replace <- data_0 %>% filter(name=="Shizuoka") %>% tibble()
@@ -478,6 +486,12 @@ rm(data_replace, data_0, fukushima_data_, g, g0)
 fukushima_data_ <- tibble(city="Fukushima_Daiichi", lat=37.421671, long=141.032727)
 # map shape data loading
 # data source https://www.naturalearthdata.com/downloads/
+# Note:
+# The following figures were made with Natural Earth. Free vector and raster map data @ naturalearthdata.com.
+# S3 Fig. Maps of all examined foodstuffs reported during FY 2012–2021.
+# S4 Fig. Maps of all examined “general foodstuffs” reported during FY 2012–2021.
+# S5 Fig. Maps of all examined “milk and infant foodstuffs” reported during FY 2012–2021.
+# S6 Fig. Maps of all examined “drinking water including soft drinks containing tea as a raw material” reported during FY 2012– 2021.
 # Note:
 # The original file distributed from the above URL was fixed for the information on "name_local" for Shizuoka prefecture to represent the actual information.
 # This code is Japanese Fonts . Please download "IPAexGothic".
